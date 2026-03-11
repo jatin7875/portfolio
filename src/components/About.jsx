@@ -45,7 +45,7 @@ export default function About() {
               aspectRatio:'1', display:'flex', alignItems:'center', justifyContent:'center',
               fontSize:'5rem', position:'relative', overflow:'hidden'
             }}>
-             <img 
+              <img 
   src="/assets/img.jpeg" 
   alt="profile"
   style={{ 
