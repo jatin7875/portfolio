@@ -70,6 +70,23 @@ export default function App() {
     return () => obs.disconnect()
   }, [loaded])
 
+  // Animated scroll function shared across nav + hero button
+  function easeInOutQuart(t) {
+    return t < 0.5 ? 8*t*t*t*t : 1 - Math.pow(-2*t+2, 4)/2
+  }
+  const smoothScrollTo = useCallback((targetY, duration = 750) => {
+    const startY = window.scrollY
+    const dist   = targetY - startY
+    let startTime = null
+    const step = ts => {
+      if (!startTime) startTime = ts
+      const prog = Math.min((ts - startTime) / duration, 1)
+      window.scrollTo(0, startY + dist * easeInOutQuart(prog))
+      if (prog < 1) requestAnimationFrame(step)
+    }
+    requestAnimationFrame(step)
+  }, [])
+
   // Touch swipe navigation
   useEffect(() => {
     const sections = ['hero','about','skills','projects','experience','certificates','contact']
