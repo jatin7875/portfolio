@@ -132,36 +132,26 @@ export default function App() {
     scrollRAF.current = requestAnimationFrame(step)
   }, [])
 
-  // ── Nav / section scroll (simple, no complex effects) ─────────
   const scrollTo = useCallback((id) => {
     const el  = document.getElementById(id)
     if (!el) return
-
-    // On mobile (touch), just use native scroll — fast and smooth
-    if (isTouching.current) {
-      const nav = document.querySelector('nav')
-      const top = el.offsetTop - (nav?.offsetHeight || 60) - 16
-      window.scrollTo({ top, behavior: 'smooth' })
-      return
-    }
-
     const nav = document.querySelector('nav')
     const top = el.offsetTop - (nav?.offsetHeight || 60) - 16
 
-    // Desktop only: flash + scanline overlay effects
-    const f = overlayRef.current.flash
-    if (f) { f.style.opacity = '1'; setTimeout(() => f.style.opacity = '0', 200) }
-
-    const s = overlayRef.current.scanline
-    if (s) {
-      s.style.transition = 'none'; s.style.left = '-100%'
-      void s.offsetWidth
-      s.style.transition = 'left 0.55s cubic-bezier(0.77,0,0.18,1)'
-      s.style.left = '100%'
-      setTimeout(() => { s.style.transition = 'none'; s.style.left = '-100%' }, 700)
-    }
 
     smoothScrollTo(top)
+
+    // Section burst
+    setTimeout(() => {
+      // Stagger cards
+      el.querySelectorAll('.cert-card,.project-card-inner').forEach((c, i) => {
+        c.style.opacity = '0'; c.style.transform = 'translateY(24px)'
+        setTimeout(() => {
+          c.style.transition = 'opacity 0.45s ease, transform 0.45s ease'
+          c.style.opacity = '1'; c.style.transform = 'translateY(0)'
+        }, i * 80 + 100)
+      })
+    }, 400)
   }, [smoothScrollTo])
 
   return (
