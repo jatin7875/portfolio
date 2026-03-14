@@ -12,6 +12,7 @@ import Certificates    from './components/Certificates'
 import Contact         from './components/Contact'
 import Footer          from './components/Footer'
 import Toast           from './components/Toast'
+import { Analytics } from "@vercel/analytics/next"
 
 // ── Scroll flash/scanline overlay ─────────────────────────────────
 function NavOverlay({ triggerRef }) {
