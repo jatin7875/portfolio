@@ -31,96 +31,127 @@ function NavOverlay({ triggerRef }) {
   )
 }
 
-export default function App() {
-  const { theme, toggleTheme }       = useTheme()
-  const { toasts, addToast, removeToast } = useToast()
-  const [loaded, setLoaded]          = useState(false)
-  const [showTop, setShowTop]        = useState(false)
-  const overlayRef                   = useRef({})
+// ── Easing & duration helpers ──────────────────────────────────────
+function easeOutExpo(t) {
+  return t === 1 ? 1 : 1 - Math.pow(2, -10 * t)
+}
+function calcDuration(distance) {
+  const d = Math.abs(distance)
+  if (d < 300)  return 500
+  if (d < 800)  return 700
+  if (d < 1600) return 900
+  return 1050
+}
 
-  // Scroll progress bar
+export default function App() {
+  const { theme, toggleTheme }            = useTheme()
+  const { toasts, addToast, removeToast } = useToast()
+  const [loaded, setLoaded]               = useState(false)
+  const [showTop, setShowTop]             = useState(false)
+  const overlayRef                        = useRef({})
+  const scrollRAF                         = useRef(null)
+  const isTouching                        = useRef(false)
+  const scrollTimer                       = useRef(null)
+
+  // ── Scroll progress bar + touch tracking ──────────────────────
   useEffect(() => {
     const bar = document.getElementById('scroll-progress')
+
+    const onTouchStart = () => { isTouching.current = true }
+    const onTouchEnd   = () => {
+      setTimeout(() => { isTouching.current = false }, 100)
+    }
+    document.addEventListener('touchstart', onTouchStart, { passive: true })
+    document.addEventListener('touchend',   onTouchEnd,   { passive: true })
+
     const onScroll = () => {
       const docH = document.body.scrollHeight - window.innerHeight
       if (bar) bar.style.width = Math.min((window.scrollY / docH) * 100, 100) + '%'
       setShowTop(window.scrollY > 400)
+
+      // Pause background animations while scrolling
+      document.body.classList.add('is-scrolling')
+      clearTimeout(scrollTimer.current)
+      scrollTimer.current = setTimeout(() => {
+        document.body.classList.remove('is-scrolling')
+      }, 150)
     }
+
     window.addEventListener('scroll', onScroll, { passive: true })
-    return () => window.removeEventListener('scroll', onScroll)
+    return () => {
+      window.removeEventListener('scroll', onScroll)
+      document.removeEventListener('touchstart', onTouchStart)
+      document.removeEventListener('touchend',   onTouchEnd)
+    }
   }, [])
 
-  // Scroll reveal via IntersectionObserver
+  // ── Scroll reveal ──────────────────────────────────────────────
   useEffect(() => {
     const els = document.querySelectorAll('[data-reveal]')
     const obs = new IntersectionObserver(entries => {
       entries.forEach(e => {
         if (e.isIntersecting) {
-          e.target.style.opacity = '1'
-          e.target.style.transform = 'translateY(0)'
+          e.target.style.opacity    = '1'
+          e.target.style.transform  = 'translateY(0)'
         }
       })
     }, { threshold: 0.1 })
     els.forEach(el => {
-      el.style.opacity = '0'
-      el.style.transform = 'translateY(28px)'
+      el.style.opacity    = '0'
+      el.style.transform  = 'translateY(28px)'
       el.style.transition = 'opacity 0.6s ease, transform 0.6s ease'
       obs.observe(el)
     })
     return () => obs.disconnect()
   }, [loaded])
 
-  // Animated scroll function shared across nav + hero button
-  function easeInOutQuart(t) {
-    return t < 0.5 ? 8*t*t*t*t : 1 - Math.pow(-2*t+2, 4)/2
-  }
-  const smoothScrollTo = useCallback((targetY, duration = 750) => {
-    const startY = window.scrollY
-    const dist   = targetY - startY
-    let startTime = null
+  // ── Smooth scroll ──────────────────────────────────────────────
+  const smoothScrollTo = useCallback((targetY, forceDuration) => {
+    // Don't hijack while user is touching (let native scroll work)
+    if (isTouching.current) return
+
+    if (scrollRAF.current) cancelAnimationFrame(scrollRAF.current)
+
+    const startY   = window.scrollY
+    const distance = targetY - startY
+    const duration = forceDuration || calcDuration(distance)
+    let startTime  = null
+
     const step = ts => {
       if (!startTime) startTime = ts
-      const prog = Math.min((ts - startTime) / duration, 1)
-      window.scrollTo(0, startY + dist * easeInOutQuart(prog))
-      if (prog < 1) requestAnimationFrame(step)
+      const elapsed  = Math.min(ts - startTime, duration)
+      const progress = elapsed / duration
+      window.scrollTo(0, startY + distance * easeOutExpo(progress))
+      if (elapsed < duration) {
+        scrollRAF.current = requestAnimationFrame(step)
+      } else {
+        window.scrollTo(0, targetY)
+        scrollRAF.current = null
+      }
     }
-    requestAnimationFrame(step)
+    scrollRAF.current = requestAnimationFrame(step)
   }, [])
 
-  // Touch swipe navigation
-  useEffect(() => {
-    const sections = ['hero','about','skills','projects','experience','certificates','contact']
-    let touchStartY = 0
-    const onTouchStart = e => { touchStartY = e.touches[0].clientY }
-    const onTouchEnd   = e => {
-      const diff = touchStartY - e.changedTouches[0].clientY
-      if (Math.abs(diff) < 60) return
-      const cur = sections.findIndex(s => {
-        const el = document.getElementById(s)
-        return el && window.scrollY < el.offsetTop + el.offsetHeight - 100
-      })
-      const next = diff > 0 ? Math.min(cur + 1, sections.length - 1) : Math.max(cur - 1, 0)
-      if (next !== cur) scrollTo(sections[next])
-    }
-    document.addEventListener('touchstart', onTouchStart, { passive:true })
-    document.addEventListener('touchend',   onTouchEnd,   { passive:true })
-    return () => {
-      document.removeEventListener('touchstart', onTouchStart)
-      document.removeEventListener('touchend',   onTouchEnd)
-    }
-  }, [])
-
- const scrollTo = useCallback((id) => {
+  // ── Nav / section scroll (simple, no complex effects) ─────────
+  const scrollTo = useCallback((id) => {
     const el  = document.getElementById(id)
     if (!el) return
+
+    // On mobile (touch), just use native scroll — fast and smooth
+    if (isTouching.current) {
+      const nav = document.querySelector('nav')
+      const top = el.offsetTop - (nav?.offsetHeight || 60) - 16
+      window.scrollTo({ top, behavior: 'smooth' })
+      return
+    }
+
     const nav = document.querySelector('nav')
     const top = el.offsetTop - (nav?.offsetHeight || 60) - 16
 
-    // Flash overlay
+    // Desktop only: flash + scanline overlay effects
     const f = overlayRef.current.flash
     if (f) { f.style.opacity = '1'; setTimeout(() => f.style.opacity = '0', 200) }
 
-    // Scanline
     const s = overlayRef.current.scanline
     if (s) {
       s.style.transition = 'none'; s.style.left = '-100%'
@@ -131,22 +162,7 @@ export default function App() {
     }
 
     smoothScrollTo(top)
-
-    // Section burst
-    setTimeout(() => {
-      
-
-      // Stagger cards
-      el.querySelectorAll('.cert-card,.project-card-inner').forEach((c, i) => {
-        c.style.opacity = '0'; c.style.transform = 'translateY(24px)'
-        setTimeout(() => {
-          c.style.transition = 'opacity 0.45s ease, transform 0.45s ease'
-          c.style.opacity = '1'; c.style.transform = 'translateY(0)'
-        }, i * 80 + 100)
-      })
-    }, 400)
   }, [smoothScrollTo])
-  
 
   return (
     <>
@@ -157,13 +173,13 @@ export default function App() {
       <Navbar theme={theme} toggleTheme={toggleTheme} scrollTo={scrollTo}/>
 
       <main>
-        <Hero     scrollTo={scrollTo}/>
+        <Hero        scrollTo={scrollTo}/>
         <About/>
         <Skills/>
         <Projects/>
         <Experience/>
         <Certificates/>
-        <Contact  addToast={addToast}/>
+        <Contact     addToast={addToast}/>
       </main>
 
       <Footer/>
@@ -175,13 +191,6 @@ export default function App() {
         onClick={() => smoothScrollTo(0)}
         title="Back to top"
       >↑</button>
-
-      <style>{`
-        @keyframes sectionBurst {
-          0%  { opacity:0.5; transform:scale(0.97) translateY(12px); }
-          100%{ opacity:1;   transform:scale(1)    translateY(0); }
-        }
-      `}</style>
     </>
   )
 }
