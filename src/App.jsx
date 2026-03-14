@@ -95,42 +95,7 @@ export default function App() {
 
   
 
-  const scrollTo = useCallback((id) => {
-    const el  = document.getElementById(id)
-    if (!el) return
-    const nav = document.querySelector('nav')
-    const top = el.offsetTop - (nav?.offsetHeight || 60) - 16
-
-    // Flash overlay
-    const f = overlayRef.current.flash
-    if (f) { f.style.opacity = '1'; setTimeout(() => f.style.opacity = '0', 200) }
-
-    // Scanline
-    const s = overlayRef.current.scanline
-    if (s) {
-      s.style.transition = 'none'; s.style.left = '-100%'
-      void s.offsetWidth
-      s.style.transition = 'left 0.55s cubic-bezier(0.77,0,0.18,1)'
-      s.style.left = '100%'
-      setTimeout(() => { s.style.transition = 'none'; s.style.left = '-100%' }, 700)
-    }
-
-    smoothScrollTo(top)
-
-    // Section burst
-    setTimeout(() => {
-      el.style.animation = 'sectionBurst 0.55s cubic-bezier(0.22,1,0.36,1) forwards'
-      setTimeout(() => el.style.animation = '', 600)
-      // Stagger cards
-      el.querySelectorAll('.cert-card,.project-card-inner').forEach((c, i) => {
-        c.style.opacity = '0'; c.style.transform = 'translateY(24px)'
-        setTimeout(() => {
-          c.style.transition = 'opacity 0.45s ease, transform 0.45s ease'
-          c.style.opacity = '1'; c.style.transform = 'translateY(0)'
-        }, i * 80 + 100)
-      })
-    }, 400)
-  }, [smoothScrollTo])
+  
 
   return (
     <>
