@@ -63,7 +63,7 @@ export default function Hero({ scrollTo }) {
             style={{ border:'none' }}>
             View My Work
           </button>
-          <a href="/resume.pdf" download className="btn-outline">
+          <a href="https://drive.google.com/file/d/14gfg1ooWilpKA4PL93cu4-wYlFb-IC6D/view?usp=sharing" download className="btn-outline">
             Download Resume
           </a>
         </div>
