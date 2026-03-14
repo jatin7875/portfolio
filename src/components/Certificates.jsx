@@ -4,7 +4,6 @@ export default function Certificates() {
   return (
     <section id="certificates" className="section" style={{ background:'var(--bg2)' }}>
       <div className="container">
-        <span className="sec-label">// 05. ACHIEVEMENTS</span>
         <h2 className="sec-title">Certificates & Awards</h2>
         <div className="sec-line"/>
 
